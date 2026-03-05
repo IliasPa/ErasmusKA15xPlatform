@@ -1,0 +1,124 @@
+name: Process approval or rejection labels
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  handle_label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Get label info
+        id: info
+        uses: actions/github-script@v7
+        with:
+          script: |
+            return {label: context.payload.label.name, actor: context.actor, number: context.payload.issue.number, body: context.payload.issue.body};
+
+      - name: Check actor is owner
+        id: check
+        run: |
+          echo "ACTOR=${{ steps.info.outputs.actor }}" >> $GITHUB_ENV
+          if [ "${{ steps.info.outputs.actor }}" != "${{ secrets.OWNER_USERNAME }}" ]; then
+            echo "Actor is not owner; exiting without processing.";
+            exit 0;
+          fi
+      - name: Approve and append to CSV
+        if: steps.info.outputs.label == 'approve'
+        env:
+          ISSUE_BODY: ${{ steps.info.outputs.body }}
+        run: |
+          echo "Processing approval for issue #${{ steps.info.outputs.number }}"
+          python3 - <<'PY'
+import re,sys,json,uuid,csv
+from datetime import datetime
+import os
+
+issue_body = os.environ.get('ISSUE_BODY','')
+if not issue_body:
+    print('No issue body provided')
+    sys.exit(1)
+
+m = re.search(r'```json\n(.+?)\n```', issue_body, re.S)
+if not m:
+    print('No JSON payload found in issue body; aborting')
+    sys.exit(1)
+data = json.loads(m.group(1))
+new_id = str(uuid.uuid4())
+data_row = {
+    'id': new_id,
+    'title': data.get('title',''),
+    'ngo_name': data.get('ngo_name',''),
+    'ngo_contact_email': data.get('ngo_contact_email',''),
+    'year': str(data.get('year','')),
+    'destination_country': data.get('destination_country',''),
+    'eligible_residence_countries': data.get('eligible_residence_countries',''),
+    'infopack_url': data.get('infopack_url',''),
+    'application_form_url_default': data.get('application_form_url_default',''),
+    'application_form_urls_by_residence': data.get('application_form_urls_by_residence',''),
+    'description': data.get('description',''),
+    'tags': data.get('tags',''),
+    'status': 'APPROVED',
+    'submitted_at': data.get('submitted_at',''),
+    'approved_at': datetime.utcnow().isoformat()+'Z'
+}
+
+csv_path = 'data/projects.csv'
+with open(csv_path, 'a', newline='', encoding='utf-8') as f:
+    writer = csv.writer(f)
+    writer.writerow([data_row[k] for k in ['id','title','ngo_name','ngo_contact_email','year','destination_country','eligible_residence_countries','infopack_url','application_form_url_default','application_form_urls_by_residence','description','tags','status','submitted_at','approved_at']])
+print('Appended to', csv_path)
+PY
+      - name: Create branch, regenerate JSON, and open PR
+        if: steps.info.outputs.label == 'approve'
+        env:
+          ISSUE_NUMBER: ${{ steps.info.outputs.number }}
+          BRANCH: approve-issue-${{ steps.info.outputs.number }}-${{ github.run_id }}
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          # regenerate CSV (already appended above), now generate JSON
+          python3 scripts/csv_to_json.py
+          git add data/projects.csv data/projects.json || true
+          if git diff --cached --quiet; then
+            echo "NO_CHANGES=true" >> $GITHUB_ENV
+          else
+            git commit -m "Add approved project from issue #${ISSUE_NUMBER}"
+            git push --set-upstream origin "$BRANCH"
+            echo "NO_CHANGES=false" >> $GITHUB_ENV
+            echo "BRANCH_NAME=$BRANCH" >> $GITHUB_ENV
+          fi
+
+      - name: Create PR and comment on issue with PR link
+        if: steps.info.outputs.label == 'approve'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue_number = parseInt(process.env.ISSUE_NUMBER,10);
+            const noChanges = process.env.NO_CHANGES === 'true';
+            if(noChanges){
+              const body = `ℹ️ Submission processed but no changes were necessary to /data/projects.csv (possible duplicate).`;
+              await github.rest.issues.createComment({owner: context.repo.owner, repo: context.repo.repo, issue_number, body});
+            } else {
+              const branch = process.env.BRANCH_NAME;
+              const pr = await github.rest.pulls.create({owner: context.repo.owner, repo: context.repo.repo, title: `Add approved project from issue #${issue_number}`, head: branch, base: context.repo.default_branch, body: `This PR adds an approved project submitted in issue #${issue_number}.`});
+              const body = `✅ Submission approved. A pull request has been opened for review: ${pr.data.html_url}`;
+              await github.rest.issues.createComment({owner: context.repo.owner, repo: context.repo.repo, issue_number, body});
+            }
+
+
+      - name: Comment and close rejected issue
+        if: steps.info.outputs.label == 'reject'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue_number = ${{ steps.info.outputs.number }};
+            const body = `❌ Submission was reviewed and marked REJECTED by ${{ github.actor }}. The issue will be closed.`;
+            await github.rest.issues.createComment({owner: context.repo.owner, repo: context.repo.repo, issue_number, body});
+            await github.rest.issues.update({owner: context.repo.owner, repo: context.repo.repo, issue_number, state: 'closed'});

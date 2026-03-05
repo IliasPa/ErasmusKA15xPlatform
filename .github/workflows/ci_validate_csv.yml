@@ -1,0 +1,24 @@
+name: CI — Validate CSV
+on:
+  push:
+    paths:
+      - 'data/projects.csv'
+  pull_request:
+    paths:
+      - 'data/projects.csv'
+
+jobs:
+  validate_csv:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Run CSV validator
+        run: |
+          python3 scripts/validate_csv.py

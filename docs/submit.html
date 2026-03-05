@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Submit Project</title>
+  <link rel="stylesheet" href="/docs/style.css" />
+</head>
+<body>
+  <main class="container">
+    <h2>Submit a KA15x Project</h2>
+    <p class="muted">This form will open a prefilled GitHub Issue. You must be signed in to GitHub to submit. The repository owner will review and approve.</p>
+    <form id="submit-form">
+      <label>Title<input name="title" required/></label>
+      <label>NGO name<input name="ngo_name" required/></label>
+      <label>NGO contact email<input name="ngo_contact_email" type="email" required/></label>
+      <label>Year<input name="year" type="number" min="2020" max="2030" required/></label>
+      <label>Destination country<input name="destination_country" required/></label>
+      <label>Eligible residence countries (semicolon-separated or ALL)<input name="eligible_residence_countries" required/></label>
+      <label>InfoPack URL<input name="infopack_url" type="url" required/></label>
+      <label>Application form default URL<input name="application_form_url_default" type="url" required/></label>
+      <label>Application form URLs by residence (JSON object string, optional)<textarea name="application_form_urls_by_residence" rows="3"></textarea></label>
+      <label>Description<textarea name="description" rows="3" required></textarea></label>
+      <label>Tags (semicolon-separated)<input name="tags"/></label>
+      <button class="btn" type="submit">Open GitHub Issue</button>
+    </form>
+    <p class="muted">If you prefer, you can instead open a new issue manually from the repository Issues page and include a JSON block with the submission (label: submission).</p>
+  </main>
+  <script>
+    const OWNER = 'IliasPa';
+    const REPO = 'ErasmusKA15xPlatform';
+    const LABEL = 'submission';
+    function buildPayload(form){
+      const data = Object.fromEntries(new FormData(form).entries());
+      data.submitted_at = new Date().toISOString();
+      data.status = 'PENDING';
+      return data;
+    }
+    document.getElementById('submit-form').addEventListener('submit', e=>{
+      e.preventDefault();
+      const form = e.target;
+      const payload = buildPayload(form);
+      const title = `Submission: ${payload.title}`;
+      const body = 'New project submission\n\n```json\n'+JSON.stringify(payload,null,2)+'\n```\n\n(Automatically opened from site)';
+      const url = `https://github.com/${OWNER}/${REPO}/issues/new?labels=${encodeURIComponent(LABEL)}&title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`;
+      window.open(url,'_blank');
+    });
+  </script>
+</body>
+</html>

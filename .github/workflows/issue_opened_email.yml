@@ -1,0 +1,49 @@
+name: Email on new submission
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for submission label or JSON payload
+        id: parse
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.issue.body || '';
+            const isSubmission = (context.payload.issue.labels||[]).some(l=>l.name==='submission') || body.includes('```json');
+            return {isSubmission, number: context.payload.issue.number, body};
+
+      - name: Send email to owner
+        if: steps.parse.outputs.isSubmission == 'true'
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_HOST }}
+          server_port: ${{ secrets.SMTP_PORT }}
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: 'New KA15x submission (#${{ github.event.issue.number }})'
+          # Prefer secret OWNER_EMAIL, fallback to provided owner address
+          to: ${{ secrets.OWNER_EMAIL || 'iliasparaskevas3@gmail.com' }}
+          from: '${{ secrets.EMAIL_FROM }}'
+          body: |
+            A new KA15x project was submitted.
+
+            Repository: ${{ github.repository }}
+            Issue: ${{ github.event.issue.html_url }}
+
+            Issue body (raw):
+            ${{ github.event.issue.body }}
+
+            Quick actions (click to open a pre-filled comment):
+            - Approve: https://github.com/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments/new?body=%2Fapprove
+            - Reject:  https://github.com/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments/new?body=%2Freject
+
+            Or open the issue and add the label 'approve' or 'reject' manually.
+
+            Submission ID (issue number): ${{ github.event.issue.number }}
+
+        env:
+          TZ: 'UTC'

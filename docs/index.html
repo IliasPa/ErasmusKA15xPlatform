@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Erasmus KA15x Directory</title>
+  <link rel="stylesheet" href="/docs/style.css" />
+  <meta name="description" content="Searchable directory of Erasmus+ KA15x projects" />
+</head>
+<body>
+  <header class="site-header">
+    <h1>Erasmus+ KA15x Projects</h1>
+    <p class="muted">Search and apply to approved KA15x projects.</p>
+  </header>
+
+  <main class="container">
+    <section class="controls">
+      <input id="search" placeholder="Search title, NGO, tags..." />
+      <div class="filters">
+        <select id="filter-year"><option value="">Year</option></select>
+        <select id="filter-destination"><option value="">Destination country</option></select>
+        <select id="filter-mycountry"><option value="">My country (residence)</option></select>
+        <label class="small"><input type="checkbox" id="use-my-country"/> Use my country for Apply</label>
+      </div>
+      <div class="actions">
+        <a class="btn" href="/docs/submit.html">Submit a project</a>
+        <a class="btn ghost" href="/docs/admin.html">Admin / Approval</a>
+      </div>
+    </section>
+
+    <section id="results" class="results"></section>
+    <div id="empty" class="empty" hidden>No projects found.</div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.2/papaparse.min.js"></script>
+  <script src="/docs/app.js"></script>
+</body>
+</html>

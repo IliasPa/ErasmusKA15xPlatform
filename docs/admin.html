@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Admin — Approval Flow</title>
+  <link rel="stylesheet" href="/docs/style.css" />
+</head>
+<body>
+  <main class="container">
+    <h2>Admin / Approval</h2>
+    <p class="muted">Submissions are created as GitHub Issues labeled <strong>submission</strong>. When you review an issue you can either add the <strong>approve</strong> label or click the <em>Approve</em> link in the notification email (it pre-fills a comment with <code>/approve</code>).</p>
+    <ul>
+      <li>When an issue is opened, a workflow will email the owner with the submission and links to the issue (including quick approve/reject comment links).</li>
+      <li>To approve: add the <strong>approve</strong> label or post a comment `/approve`. The approval workflow will append the project to <code>/data/projects.csv</code>, regenerate <code>/data/projects.json</code>, and open a pull request. When the PR is merged, the originating issue is closed automatically.</li>
+      <li>To reject: add the <strong>reject</strong> label or post a comment `/reject`. The workflow will comment and close the issue.</li>
+    </ul>
+    <h3>Security notes</h3>
+    <p class="muted">Only repository collaborators can add labels. Workflows check the actor against the configured OWNER_USERNAME secret to ensure only the owner can approve.</p>
+    <p>See README for full setup steps (secrets, email SMTP, enabling Pages).</p>
+  </main>
+</body>
+</html>

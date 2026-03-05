@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+.pytest_cache/
+*.py[cod]
+venv/
+.venv/
+env/
+ENV/
+/.env
+
+# VSCode
+.vscode/
+
+# Node
+node_modules/
+npm-debug.log
+
+# macOS
+.DS_Store
+
+# Logs
+.log
+
+# Editor backups
+*~
+
+# Local secrets
+secrets.env

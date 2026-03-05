@@ -1,0 +1,29 @@
+name: On PR merged — close related issue
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  on_merge:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Parse issue number from PR title
+        id: parse
+        run: |
+          title="${{ github.event.pull_request.title }}"
+          echo "PR_TITLE=$title" >> $GITHUB_ENV
+          # Extract issue number pattern like '#123'
+          issue=$(echo "$title" | grep -oE '#[0-9]+' | head -n1 | tr -d '#') || true
+          echo "ISSUE_NUM=${issue}" >> $GITHUB_ENV
+
+      - name: Comment and close issue
+        if: env.ISSUE_NUM != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue_number = parseInt(process.env.ISSUE_NUM,10);
+            const pr = context.payload.pull_request;
+            const body = `🔀 The pull request ${pr.html_url} was merged. The submission from issue #${issue_number} is now live.`;
+            await github.rest.issues.createComment({owner: context.repo.owner, repo: context.repo.repo, issue_number, body});
+            await github.rest.issues.update({owner: context.repo.owner, repo: context.repo.repo, issue_number, state: 'closed'});

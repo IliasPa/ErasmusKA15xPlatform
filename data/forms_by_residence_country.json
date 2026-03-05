@@ -1,0 +1,13 @@
+{
+  "Greece": "https://example.org/forms/gr",
+  "Italy": "https://example.org/forms/it",
+  "Spain": "https://example.org/forms/es",
+  "Germany": "https://example.org/forms/de",
+  "France": "https://example.org/forms/fr",
+  "Portugal": "https://example.org/forms/pt",
+  "Poland": "https://example.org/forms/pl",
+  "Netherlands": "https://example.org/forms/nl",
+  "Belgium": "https://example.org/forms/be",
+  "United Kingdom": "https://example.org/forms/uk",
+  "DEFAULT": "https://example.org/forms/default"
+}

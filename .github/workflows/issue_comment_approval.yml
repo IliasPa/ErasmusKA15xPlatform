@@ -1,0 +1,42 @@
+name: Approve or reject via issue comment (/approve or /reject)
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  comment_command:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Parse comment
+        id: parse
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const comment = context.payload.comment.body.trim();
+            const issue_number = context.payload.issue.number;
+            return {comment, issue_number, actor: context.payload.comment.user.login};
+
+      - name: Check actor is owner
+        id: check
+        run: |
+          if [ "${{ steps.parse.outputs.actor }}" != "${{ secrets.OWNER_USERNAME }}" ]; then
+            echo "Actor is not owner; ignoring command.";
+            exit 0;
+          fi
+
+      - name: If approve -> add approve label
+        if: steps.parse.outputs.comment == '/approve'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.addLabels({owner: context.repo.owner, repo: context.repo.repo, issue_number: parseInt('${{ steps.parse.outputs.issue_number }}',10), labels: ['approve']});
+
+      - name: If reject -> add reject label
+        if: steps.parse.outputs.comment == '/reject'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.addLabels({owner: context.repo.owner, repo: context.repo.repo, issue_number: parseInt('${{ steps.parse.outputs.issue_number }}',10), labels: ['reject']});
