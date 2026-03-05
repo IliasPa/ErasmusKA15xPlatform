@@ -1,38 +1,39 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Erasmus KA15x Directory</title>
-  <link rel="stylesheet" href="/docs/style.css" />
-  <meta name="description" content="Searchable directory of Erasmus+ KA15x projects" />
-</head>
-<body>
-  <header class="site-header">
-    <h1>Erasmus+ KA15x Projects</h1>
-    <p class="muted">Search and apply to approved KA15x projects.</p>
-  </header>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Erasmus+ — KA15x Project Finder</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <div id="app" class="app-root">
+      <header class="top-header">
+        <div class="header-inner">
+          <div class="titles">
+            <div class="title">Erasmus+</div>
+            <div class="subtitle">KA15x Project Finder</div>
+          </div>
+          <img src="./assets/eu.svg" alt="EU" class="eu-badge" />
+        </div>
+        <div class="search-row">
+          <input id="searchInput" placeholder="Search projects, NGOs, cities…" aria-label="Search projects" />
+          <button id="filtersToggle" class="icon-btn" aria-label="Filters"><span class="filter-badge" id="filtersCount">0</span>⚙️</button>
+        </div>
+        <div id="chipsRow" class="chips-row" aria-hidden="false"></div>
+      </header>
 
-  <main class="container">
-    <section class="controls">
-      <input id="search" placeholder="Search title, NGO, tags..." />
-      <div class="filters">
-        <select id="filter-year"><option value="">Year</option></select>
-        <select id="filter-destination"><option value="">Destination country</option></select>
-        <select id="filter-mycountry"><option value="">My country (residence)</option></select>
-        <label class="small"><input type="checkbox" id="use-my-country"/> Use my country for Apply</label>
-      </div>
-      <div class="actions">
-        <a class="btn" href="/docs/submit.html">Submit a project</a>
-        <a class="btn ghost" href="/docs/admin.html">Admin / Approval</a>
-      </div>
-    </section>
+      <main id="view" class="view"></main>
 
-    <section id="results" class="results"></section>
-    <div id="empty" class="empty" hidden>No projects found.</div>
-  </main>
+      <nav class="bottom-nav">
+        <button data-route="#/explore" class="nav-item" id="navExplore">🏠<span>Explore</span></button>
+        <button data-route="#/add" class="nav-item primary" id="navAdd">➕<span>Add</span></button>
+        <button data-route="#/saved" class="nav-item" id="navSaved">🔖<span>Saved</span></button>
+      </nav>
+    </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.2/papaparse.min.js"></script>
-  <script src="/docs/app.js"></script>
-</body>
+    <div id="modalRoot"></div>
+
+    <script src="./app.js"></script>
+  </body>
 </html>
