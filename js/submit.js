@@ -8,7 +8,6 @@ document.addEventListener("DOMContentLoaded", function () {
   const startDateInput = document.getElementById("submissionStartDate");
   const endDateInput = document.getElementById("submissionEndDate");
   const infopackUrlInput = document.getElementById("submissionInfopackUrl");
-  const websiteLinkInput = document.getElementById("submissionWebsiteLink");
   const applicationFormsContainer = document.getElementById("applicationFormsContainer");
   const addApplicationFormButton = document.getElementById("addApplicationFormButton");
   const noApplicationFormsCheckbox = document.getElementById("noApplicationForms");
@@ -31,7 +30,6 @@ document.addEventListener("DOMContentLoaded", function () {
     startDateInput.addEventListener("change", validateDateRange);
     endDateInput.addEventListener("change", validateDateRange);
     infopackUrlInput.addEventListener("input", clearStatus);
-    websiteLinkInput.addEventListener("input", clearStatus);
     syncApplicationFormsState();
   }
 
@@ -100,7 +98,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
     validateDateRange();
     validateOptionalUrl(infopackUrlInput, "Infopack URL must be a valid URL.", validationErrors);
-    validateOptionalUrl(websiteLinkInput, "Website / source link must be a valid URL.", validationErrors);
     validateApplicationForms(validationErrors);
 
     if (!form.checkValidity() || validationErrors.length > 0) {
@@ -185,7 +182,6 @@ document.addEventListener("DOMContentLoaded", function () {
   function clearCustomErrors() {
     endDateInput.setCustomValidity("");
     infopackUrlInput.setCustomValidity("");
-    websiteLinkInput.setCustomValidity("");
 
     getApplicationFormRows().forEach(function (row) {
       row.querySelector(".application-form-country").setCustomValidity("");

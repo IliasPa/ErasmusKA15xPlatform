@@ -420,13 +420,14 @@ h2 {
 .pill {
   display: inline-flex;
   align-items: center;
-  min-height: 2rem;
+  align-self: flex-start;
   padding: 0.35rem 0.75rem;
   border-radius: 999px;
   background: var(--secondary);
   color: var(--primary-dark);
   font-size: 0.82rem;
   font-weight: 800;
+  line-height: 1.2;
 }
 
 .project-card h2 {
@@ -521,6 +522,23 @@ h2 {
 .button--ghost:focus-visible {
   background: rgba(139, 92, 246, 0.12);
   border-color: rgba(139, 92, 246, 0.26);
+}
+
+.button--sync {
+  gap: 0.45rem;
+  background: rgba(79, 70, 229, 0.08);
+  border-color: rgba(79, 70, 229, 0.22);
+  color: var(--primary-dark);
+}
+
+.button--sync:hover,
+.button--sync:focus-visible {
+  background: rgba(79, 70, 229, 0.15);
+  border-color: rgba(79, 70, 229, 0.36);
+}
+
+.sync-icon {
+  flex-shrink: 0;
 }
 
 .empty-state {

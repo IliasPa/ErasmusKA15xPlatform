@@ -179,14 +179,18 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function createProjectCard(project) {
-    const location = project.location_city + ", " + project.destination_country;
+    const locationParts = [project.location_city, project.destination_country].filter(Boolean);
+    const location = locationParts.length ? locationParts.join(", ") : "Location TBC";
     const dateRange = platform.formatProjectDateRange(project.start_date, project.end_date);
+    const countryPill = project.destination_country
+      ? '    <span class="pill">' + escapeHtml(project.destination_country) + '</span>'
+      : '';
 
     return [
-      '<a class="project-card" href="project?id=' + encodeURIComponent(project.id) + '" aria-label="View details for ' + escapeAttribute(project.title) + '">',    
+      '<a class="project-card" href="project.html?id=' + encodeURIComponent(project.id) + '" aria-label="View details for ' + escapeAttribute(project.title) + '">',
       '  <div class="project-card__meta">',
       '    <span class="pill">' + escapeHtml(project.ka_action) + '</span>',
-      '    <span class="pill">' + escapeHtml(project.destination_country) + '</span>',
+      countryPill,
       "  </div>",
       '  <div class="project-card__content">',
       '    <h2>' + escapeHtml(project.title) + '</h2>',
