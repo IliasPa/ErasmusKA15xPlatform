@@ -56,7 +56,8 @@ document.addEventListener("DOMContentLoaded", function () {
     clearResidenceButton: document.getElementById("clearResidenceButton"),
     projectsGrid: document.getElementById("projectsGrid"),
     resultsCount: document.getElementById("resultsCount"),
-    emptyState: document.getElementById("emptyState")
+    emptyState: document.getElementById("emptyState"),
+    showPastToggle: document.getElementById("showPastToggle")
   };
 
   let allProjects = [];
@@ -99,7 +100,8 @@ document.addEventListener("DOMContentLoaded", function () {
       elements.destinationFilter,
       platform.getUniqueValues(projects, "destination_country"),
       "Destination",
-      "all"
+      "all",
+      platform.withFlag
     );
 
     elements.monthFilter.value = state.month;
@@ -134,6 +136,14 @@ document.addEventListener("DOMContentLoaded", function () {
       platform.saveResidenceCountry(state.residence);
       refreshProjects();
     });
+
+    if (elements.showPastToggle) {
+      elements.showPastToggle.checked = state.showPast;
+      elements.showPastToggle.addEventListener("change", function (event) {
+        state.showPast = event.target.checked;
+        renderProjects();
+      });
+    }
 
     filterBindings.forEach(function (binding) {
       elements[binding.clearButton].addEventListener("click", function () {
@@ -182,12 +192,25 @@ document.addEventListener("DOMContentLoaded", function () {
     const locationParts = [project.location_city, project.destination_country].filter(Boolean);
     const location = locationParts.length ? locationParts.join(", ") : "Location TBC";
     const dateRange = platform.formatProjectDateRange(project.start_date, project.end_date);
-    const countryPill = project.destination_country
-      ? '    <span class="pill">' + escapeHtml(project.destination_country) + '</span>'
+    // Online activities show "Online" in the pill instead of the host country.
+    const isOnline = /online/i.test(project.location_city || "");
+    const pillLabel = isOnline ? "Online" : project.destination_country;
+    const countryPill = pillLabel
+      ? '    <span class="pill">' + escapeHtml(pillLabel) + '</span>'
       : '';
 
+    // Deadline line (above the location). Only shown when we know the deadline;
+    // when it has passed we both flag the card and label the line.
+    const deadlineText = platform.formatDeadline(project.application_deadline);
+    const deadlinePassed = platform.isDeadlinePassed(project);
+    const deadlineFact = deadlineText
+      ? '      <p class="project-card__fact"><span class="project-card__icon" aria-hidden="true">⌛</span><span>' +
+        escapeHtml(deadlineText) + (deadlinePassed ? " (deadline passed)" : "") + '</span></p>'
+      : '';
+    const cardClass = "project-card" + (deadlinePassed ? " project-card--deadline-passed" : "");
+
     return [
-      '<a class="project-card" href="project.html?id=' + encodeURIComponent(project.id) + '" aria-label="View details for ' + escapeAttribute(project.title) + '">',
+      '<a class="' + cardClass + '" href="project.html?id=' + encodeURIComponent(project.id) + '" aria-label="View details for ' + escapeAttribute(project.title) + '">',
       '  <div class="project-card__meta">',
       '    <span class="pill">' + escapeHtml(project.ka_action) + '</span>',
       countryPill,
@@ -197,6 +220,7 @@ document.addEventListener("DOMContentLoaded", function () {
       '    <p class="project-card__ngo">Hosted by ' + escapeHtml(project.hosting_ngo) + '</p>',
       '    <p class="project-card__summary">' + escapeHtml(project.summary) + '</p>',
       '    <div class="project-card__facts">',
+      deadlineFact,
       '      <p class="project-card__fact"><span class="project-card__icon" aria-hidden="true">📍</span><span>' + escapeHtml(location) + '</span></p>',
       '      <p class="project-card__fact"><span class="project-card__icon" aria-hidden="true">📅</span><span>' + escapeHtml(dateRange) + '</span></p>',
       "    </div>",

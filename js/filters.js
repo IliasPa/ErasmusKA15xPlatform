@@ -29,6 +29,46 @@
     "Turkey"
   ];
 
+  // Country name → ISO 3166-1 alpha-2 code, used to render a flag emoji next to
+  // the country name in the dropdowns and lists. Covers the programme countries
+  // plus the partner/neighbour countries that can show up as a destination.
+  const COUNTRY_ISO = {
+    "Austria": "AT", "Belgium": "BE", "Bulgaria": "BG", "Croatia": "HR",
+    "Cyprus": "CY", "Czech Republic": "CZ", "Czechia": "CZ", "Denmark": "DK",
+    "Estonia": "EE", "Finland": "FI", "France": "FR", "Germany": "DE",
+    "Greece": "GR", "Hungary": "HU", "Iceland": "IS", "Ireland": "IE",
+    "Italy": "IT", "Latvia": "LV", "Liechtenstein": "LI", "Lithuania": "LT",
+    "Luxembourg": "LU", "Malta": "MT", "Netherlands": "NL", "Norway": "NO",
+    "Poland": "PL", "Portugal": "PT", "Romania": "RO", "Slovakia": "SK",
+    "Slovenia": "SI", "Spain": "ES", "Sweden": "SE", "Switzerland": "CH",
+    "Turkey": "TR", "Türkiye": "TR", "United Kingdom": "GB",
+    "North Macedonia": "MK", "Republic of North Macedonia": "MK", "Serbia": "RS",
+    "Albania": "AL", "Montenegro": "ME", "Kosovo": "XK",
+    "Bosnia and Herzegovina": "BA", "Moldova": "MD", "Ukraine": "UA",
+    "Georgia": "GE", "Armenia": "AM", "Azerbaijan": "AZ", "Belarus": "BY",
+    "Russia": "RU", "Morocco": "MA", "Tunisia": "TN", "Algeria": "DZ",
+    "Egypt": "EG", "Jordan": "JO", "Lebanon": "LB", "Israel": "IL",
+    "Palestine": "PS"
+  };
+
+  function countryFlag(name) {
+    const code = COUNTRY_ISO[String(name || "").trim()];
+
+    if (!code) {
+      return "";
+    }
+
+    // Turn each letter into its regional-indicator symbol; the pair renders as a flag.
+    return code.replace(/[A-Z]/g, function (letter) {
+      return String.fromCodePoint(0x1f1e6 + letter.charCodeAt(0) - 65);
+    });
+  }
+
+  function withFlag(name) {
+    const flag = countryFlag(name);
+    return flag ? flag + " " + name : name;
+  }
+
   let toastTimer = null;
 
   function createInitialState() {
@@ -37,7 +77,8 @@
       month: "all",
       projectType: "all",
       destination: "all",
-      residence: getSavedResidenceCountry()
+      residence: getSavedResidenceCountry(),
+      showPast: false
     };
   }
 
@@ -62,7 +103,7 @@
     }
   }
 
-  function populateSelect(selectElement, values, defaultLabel, defaultValue) {
+  function populateSelect(selectElement, values, defaultLabel, defaultValue, formatLabel) {
     if (!selectElement) {
       return;
     }
@@ -76,8 +117,10 @@
 
     values.forEach(function (value) {
       const option = document.createElement("option");
+      // The value stays the plain country/name (filters match on it); only the
+      // visible label is decorated, e.g. with a flag emoji.
       option.value = value;
-      option.textContent = value;
+      option.textContent = formatLabel ? formatLabel(value) : value;
       selectElement.appendChild(option);
     });
   }
@@ -89,7 +132,7 @@
         })
       : COUNTRIES;
 
-    populateSelect(selectElement, countries, "Select your country", "");
+    populateSelect(selectElement, countries, "Select your country", "", withFlag);
 
     if (selectedValue && countries.indexOf(selectedValue) !== -1) {
       selectElement.value = selectedValue;
@@ -227,25 +270,68 @@
     });
   }
 
-  function filterProjects(projects, state) {
-    return projects.filter(function (project) {
-      const matchesMonth = projectMatchesMonth(project, state.month);
-      const matchesProjectType = state.projectType === "all" || project.ka_action === state.projectType;
-      const matchesDestination = state.destination === "all" || project.destination_country === state.destination;
-      const matchesResidence = !state.residence || Boolean(resolveApplicationForm(project, state.residence));
-      const matchesSearch = !state.search || [
-        project.title,
-        project.summary,
-        project.hosting_ngo,
-        project.location_city,
-        project.destination_country,
-        project.ka_action
-      ].some(function (field) {
-        return normalize(field).includes(normalize(state.search));
-      });
+  function startOfToday() {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  }
 
-      return matchesMonth && matchesProjectType && matchesDestination && matchesResidence && matchesSearch;
+  // A project is "past" once its finish date (or its start date, if no finish
+  // date is set) is before today. Such projects are hidden unless the visitor
+  // turns on the "show past projects" toggle.
+  function isProjectPast(project) {
+    const finishDate = parseProjectDate(project.end_date) || parseProjectDate(project.start_date);
+    return finishDate ? finishDate < startOfToday() : false;
+  }
+
+  // True when the application deadline has already passed (used to tint the card).
+  function isDeadlinePassed(project) {
+    const deadline = parseProjectDate(project.application_deadline);
+    return deadline ? deadline < startOfToday() : false;
+  }
+
+  function formatDeadline(value) {
+    const deadline = parseProjectDate(value);
+
+    if (!deadline) {
+      return "";
+    }
+
+    return deadline.toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "short",
+      year: "numeric"
     });
+  }
+
+  function compareByStartDate(left, right) {
+    // Sort by start date ascending; projects without a start date sink to the end.
+    const leftKey = left.start_date || "9999-12-31";
+    const rightKey = right.start_date || "9999-12-31";
+    return leftKey.localeCompare(rightKey);
+  }
+
+  function filterProjects(projects, state) {
+    return projects
+      .filter(function (project) {
+        const matchesPast = state.showPast || !isProjectPast(project);
+        const matchesMonth = projectMatchesMonth(project, state.month);
+        const matchesProjectType = state.projectType === "all" || project.ka_action === state.projectType;
+        const matchesDestination = state.destination === "all" || project.destination_country === state.destination;
+        const matchesResidence = !state.residence || Boolean(resolveApplicationForm(project, state.residence));
+        const matchesSearch = !state.search || [
+          project.title,
+          project.summary,
+          project.hosting_ngo,
+          project.location_city,
+          project.destination_country,
+          project.ka_action
+        ].some(function (field) {
+          return normalize(field).includes(normalize(state.search));
+        });
+
+        return matchesPast && matchesMonth && matchesProjectType && matchesDestination && matchesResidence && matchesSearch;
+      })
+      .sort(compareByStartDate);
   }
 
   function resolveApplicationForm(project, residenceCountry) {
@@ -412,13 +498,18 @@
 
   window.ErasmusFilters = {
     countries: COUNTRIES,
+    countryFlag: countryFlag,
+    withFlag: withFlag,
     createCountryDialog: createCountryDialog,
     createInitialState: createInitialState,
     filterProjects: filterProjects,
     formatProjectDateRange: formatProjectDateRange,
+    formatDeadline: formatDeadline,
     getSavedResidenceCountry: getSavedResidenceCountry,
     getUpcomingMonths: getUpcomingMonths,
     getUniqueValues: getUniqueValues,
+    isProjectPast: isProjectPast,
+    isDeadlinePassed: isDeadlinePassed,
     loadProjectsData: loadProjectsData,
     parseProjectDate: parseProjectDate,
     projectMatchesMonth: projectMatchesMonth,

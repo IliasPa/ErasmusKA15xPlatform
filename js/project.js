@@ -91,6 +91,20 @@ document.addEventListener("DOMContentLoaded", function () {
     document.getElementById("projectSummary").textContent = project.summary;
     document.getElementById("projectKaAction").textContent = project.ka_action;
     document.getElementById("projectNgo").textContent = project.hosting_ngo;
+
+    // Deadline line (above the location), mirroring the catalog card.
+    const deadlineLine = document.getElementById("projectDeadlineLine");
+    const deadlineText = platform.formatDeadline(project.application_deadline);
+    if (deadlineText) {
+      deadlineLine.hidden = false;
+      deadlineLine.textContent =
+        "⌛ " +
+        deadlineText +
+        (platform.isDeadlinePassed(project) ? " (deadline passed)" : "");
+    } else {
+      deadlineLine.hidden = true;
+    }
+
     document.getElementById("projectLocationLine").textContent =
       "📍 " + project.location_city + ", " + project.destination_country;
     document.getElementById("projectDatesLine").textContent =
@@ -105,7 +119,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
     acceptedCountriesList.innerHTML = acceptedCountries
       .map(function (country) {
-        return "<li>" + escapeHtml(country) + "</li>";
+        const flag = platform.countryFlag(country);
+        return "<li>" + (flag ? flag + " " : "") + escapeHtml(country) + "</li>";
       })
       .join("");
 
@@ -151,7 +166,13 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function countryTag(country) {
-    return '<span class="country-tag">' + escapeHtml(country) + "</span>";
+    const flag = platform.countryFlag(country);
+    return (
+      '<span class="country-tag">' +
+      (flag ? flag + " " : "") +
+      escapeHtml(country) +
+      "</span>"
+    );
   }
 
   function showNotFound() {
@@ -165,6 +186,7 @@ document.addEventListener("DOMContentLoaded", function () {
     document.getElementById("projectKaAction").textContent = "Unavailable";
     document.getElementById("projectNgo").textContent =
       "Please return to the catalog.";
+    document.getElementById("projectDeadlineLine").hidden = true;
     document.getElementById("projectLocationLine").textContent = "";
     document.getElementById("projectDatesLine").textContent = "";
     acceptedCountriesList.innerHTML = "";

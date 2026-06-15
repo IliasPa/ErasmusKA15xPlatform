@@ -335,6 +335,65 @@ h2 {
   gap: 1rem;
 }
 
+/* "Show past projects" switch next to the results count. */
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  cursor: pointer;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.toggle__input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle__track {
+  position: relative;
+  width: 2.6rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  background: rgba(79, 70, 229, 0.18);
+  transition: background-color 160ms ease;
+  flex-shrink: 0;
+}
+
+.toggle__track::after {
+  content: "";
+  position: absolute;
+  top: 0.2rem;
+  left: 0.2rem;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(30, 27, 75, 0.3);
+  transition: transform 160ms ease;
+}
+
+.toggle__input:checked + .toggle__track {
+  background: var(--primary);
+}
+
+.toggle__input:checked + .toggle__track::after {
+  transform: translateX(1.1rem);
+}
+
+.toggle__input:focus-visible + .toggle__track {
+  outline: 3px solid rgba(99, 102, 241, 0.35);
+  outline-offset: 2px;
+}
+
+.toggle__label {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
 .filters-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -396,6 +455,9 @@ h2 {
   padding: 1.3rem;
   color: inherit;
   min-height: 100%;
+  /* Keep content packed at the top so shorter cards don't centre vertically
+     when a taller card stretches the row. */
+  align-content: start;
   transform: translateY(12px);
   opacity: 0;
   animation: card-enter 380ms ease forwards;
@@ -429,6 +491,18 @@ h2 {
 
 .project-card:nth-child(4) {
   animation-delay: 150ms;
+}
+
+/* Application deadline already passed → tint the whole card light red. */
+.project-card--deadline-passed {
+  background: rgba(239, 68, 68, 0.09);
+  border-color: rgba(239, 68, 68, 0.28);
+}
+
+.project-card--deadline-passed:hover,
+.project-card--deadline-passed:focus-visible {
+  background: rgba(239, 68, 68, 0.14);
+  border-color: rgba(239, 68, 68, 0.38);
 }
 
 .project-card__meta {
