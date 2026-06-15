@@ -163,7 +163,9 @@
     "hosting_ngo": "Africana Impact Organization",
     "infopack_url": "https://www.salto-youth.net/tools/otlas-partner-finding/download/11701/Legal%20Status%20of%20the%20Association.pdf",
     "summary": "This summer school project aims to reinforce the language competencies of children and young adults with few opportunities.",
-    "application_forms": {}
+    "application_forms": {
+      "Cyprus": "https://www.salto-youth.net/tools/otlas-partner-finding/download/11700/Application%20Form%20-%20Volunteer%20Teaching%20Program.pdf"
+    }
   },
   {
     "id": "proj-010",
@@ -178,7 +180,10 @@
     "hosting_ngo": "Global Organization for Development /G.O.D/",
     "infopack_url": "",
     "summary": "Experienced Erasmus+ NGO (G.O.D.) with 115+ projects and 333,000 reach. Reliable partner offering expertise, quality participants, and dissemination.",
-    "application_forms": {}
+    "application_forms": {
+      "France": "https://www.salto-youth.net/tools/otlas-partner-finding/download/11699/Application%20Form%20-%20G.O.D.pdf",
+      "Greece": "https://www.salto-youth.net/tools/otlas-partner-finding/download/11700/Application%20Form%20-%20G.O.D.pdf"
+    }
   },
   {
     "id": "proj-011",
@@ -193,7 +198,9 @@
     "hosting_ngo": "IDEA",
     "infopack_url": "",
     "summary": "KA154-YOU Youth Participation Activities project empowering rural young to engage in democratic life, influence local decision-making and contribute to stronger",
-    "application_forms": {}
+    "application_forms": {
+      "Cyprus": "https://www.salto-youth.net/tools/otlas-partner-finding/download/11614/Application%20Form%20-%20Rural%20Voices.pdf"
+    }
   },
   {
     "id": "proj-012",

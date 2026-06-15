@@ -15,7 +15,11 @@
   <div class="site-shell site-shell--detail">
     <header class="subpage-header">
       <div class="container subpage-header__inner">
-        <a class="button button--ghost" href="./">Back to catalog</a>
+        <a class="button button--ghost button--back" href="./" aria-label="Back to catalog" title="Back to catalog">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </a>
       </div>
     </header>
 
@@ -46,9 +50,9 @@
 
           <aside class="detail-card__sidebar">
             <div class="sidebar-block">
-              <h2>Application</h2>
-              <p>Select one of the accepted residence countries to open the correct application form for this project.</p>
-              <label class="field">
+              <h2 id="applicationTitle">Application</h2>
+              <p id="applicationIntro">Select one of the accepted residence countries to open the correct application form for this project.</p>
+              <label class="field" id="residenceField">
                 <span>My Country</span>
                 <select id="detailResidenceFilter">
                   <option value="">Select your country</option>
@@ -60,7 +64,7 @@
               </div>
             </div>
 
-            <div class="sidebar-block">
+            <div class="sidebar-block" id="acceptedCountriesBlock">
               <h2>Accepted residence countries</h2>
               <ul class="country-list" id="acceptedCountriesList"></ul>
             </div>

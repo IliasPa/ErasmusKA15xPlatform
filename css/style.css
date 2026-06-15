@@ -22,6 +22,12 @@
   box-sizing: border-box;
 }
 
+/* Ensure the `hidden` attribute always wins, even on elements whose class
+   sets a `display` value (e.g. .button, .field). */
+[hidden] {
+  display: none !important;
+}
+
 html {
   scroll-behavior: smooth;
 }
@@ -32,8 +38,16 @@ body {
   font-family: "Manrope", sans-serif;
   color: var(--text);
   background:
-    radial-gradient(circle at top left, rgba(139, 92, 246, 0.18), transparent 32%),
-    radial-gradient(circle at right 10%, rgba(79, 70, 229, 0.16), transparent 28%),
+    radial-gradient(
+      circle at top left,
+      rgba(139, 92, 246, 0.18),
+      transparent 32%
+    ),
+    radial-gradient(
+      circle at right 10%,
+      rgba(79, 70, 229, 0.16),
+      transparent 28%
+    ),
     linear-gradient(180deg, #f8faff 0%, var(--bg) 45%, #eef1ff 100%);
 }
 
@@ -98,7 +112,7 @@ button {
 }
 
 .hero {
-  padding-bottom: 1rem;
+  padding-bottom: 0rem;
   background:
     linear-gradient(0deg, rgba(0, 13, 125, 0.16), rgba(6, 4, 147, 0.1)),
     linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0));
@@ -110,10 +124,6 @@ button {
   justify-content: space-between;
   gap: 1.5rem;
   align-items: flex-start;
-}
-
-.hero__headline {
-  padding-bottom: 1rem;
 }
 
 .brand {
@@ -200,7 +210,7 @@ h2 {
 .hero__content {
   display: grid;
   gap: 0.35rem;
-  padding: 2.2rem 0 1.1rem;
+  padding: 1rem;
 }
 
 .top-nav {
@@ -234,7 +244,10 @@ h2 {
   border: 1px solid rgba(79, 70, 229, 0.12);
   background: rgba(255, 255, 255, 0.78);
   box-shadow: 0 10px 28px rgba(79, 70, 229, 0.08);
-  transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background-color 160ms ease;
 }
 
 .filter-control.is-active {
@@ -348,7 +361,10 @@ h2 {
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.86);
   color: var(--text);
-  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
 }
 
 .field input:focus,
@@ -383,7 +399,11 @@ h2 {
   transform: translateY(12px);
   opacity: 0;
   animation: card-enter 380ms ease forwards;
-  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease, background-color 180ms ease;
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease,
+    background-color 180ms ease;
 }
 
 .project-card:hover,
@@ -473,6 +493,7 @@ h2 {
 .detail-actions,
 .country-dialog__actions {
   display: flex;
+  padding-top: 0.75rem;
   flex-wrap: wrap;
   gap: 0.75rem;
 }
@@ -486,7 +507,11 @@ h2 {
   border: 1px solid transparent;
   border-radius: 999px;
   font-weight: 800;
-  transition: transform 160ms ease, background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+  transition:
+    transform 160ms ease,
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
 }
 
 .button:hover,
@@ -535,6 +560,23 @@ h2 {
 .button--sync:focus-visible {
   background: rgba(79, 70, 229, 0.15);
   border-color: rgba(79, 70, 229, 0.36);
+}
+
+.button--back {
+  width: 2.9rem;
+  min-width: 2.9rem;
+  padding: 0;
+  border-radius: 50%;
+}
+
+.button--back svg {
+  flex-shrink: 0;
+  transition: transform 160ms ease;
+}
+
+.button--back:hover svg,
+.button--back:focus-visible svg {
+  transform: translateX(-2px);
 }
 
 .sync-icon {
@@ -614,13 +656,19 @@ h2 {
   margin-top: 0.9rem;
 }
 
-.country-list li {
+.country-list li,
+.country-tag {
   padding: 0.4rem 0.75rem;
   border-radius: 999px;
   background: rgba(99, 102, 241, 0.1);
   color: var(--primary-dark);
   font-weight: 700;
   font-size: 0.88rem;
+}
+
+.country-tag {
+  display: inline-block;
+  padding: 0.15rem 0.6rem;
 }
 
 .country-dialog {
@@ -759,7 +807,11 @@ h2 {
   position: relative;
   padding: 1.35rem;
   border-radius: 28px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(245, 243, 255, 0.96));
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.96),
+    rgba(245, 243, 255, 0.96)
+  );
   border: 1px solid rgba(255, 255, 255, 0.9);
 }
 
@@ -816,7 +868,9 @@ h2 {
   text-align: center;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 180ms ease, transform 180ms ease;
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease;
 }
 
 .toast.is-visible {

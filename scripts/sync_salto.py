@@ -1,7 +1,14 @@
 #!/usr/bin/env python3
 """
-sync_salto.py — Pulls project listings from Salto Youth Otlas RSS feed
-and merges new entries into data/projects.json.
+sync_salto.py — Pulls project listings from the Salto Youth Otlas project
+search and merges new entries into data/projects.json.
+
+Only projects that are *ready to find participants* are imported, i.e. those
+that still need partners AND whose partner-request deadline is still in the
+future (Otlas filters ``b_partners_needed`` + ``b_future_deadline``). Expired
+or already-filled listings are skipped.
+
+The whole result set is paged through (``b_offset``), not just the first page.
 
 Fields populated automatically:
   id, salto_id, salto_url, title, hosting_ngo, summary,
@@ -12,18 +19,33 @@ Fields requiring manual completion (left empty):
   application_forms
 """
 
+from __future__ import annotations
+
 import json
 import re
 import sys
 import time
 from pathlib import Path
-from xml.etree import ElementTree as ET
 
 import requests
 from bs4 import BeautifulSoup
 
-RSS_BASE = "https://www.salto-youth.net/tools/otlas-partner-finding/projects/?rss=1"
+LISTING_URL = "https://www.salto-youth.net/tools/otlas-partner-finding/projects/"
+SITE_ROOT = "https://www.salto-youth.net"
 DATA_FILE = Path(__file__).parent.parent / "data" / "projects.json"
+
+PAGE_SIZE = 10           # Otlas fixes the listing page size at 10
+MAX_PAGES = 200          # safety cap so a layout change can't loop forever
+
+# Search filters: only projects still recruiting partners with a future
+# deadline — the ones actually ready to take on participants.
+SEARCH_PARAMS = {
+    "b_browse": "Search projects",
+    "b_partners_needed": "1",
+    "b_future_deadline": "1",
+    "b_order": "lastmod",
+    "b_limit": str(PAGE_SIZE),
+}
 
 # Map known KA codes / keywords → schema values
 KA_MAP = [
@@ -41,8 +63,26 @@ HEADERS = {
     "User-Agent": "ErasmusPlatformSync/1.0 (github.com/IliasPa/ErasmusKA15xPlatform)"
 }
 
+# An infopack can be advertised in many ways. We treat a link as an infopack if
+# its URL or its visible text mentions any of these words…
+INFOPACK_KEYWORDS = [
+    "infopack", "info-pack", "info pack",
+    "infosheet", "info-sheet", "info sheet",
+    "information", "factsheet", "fact sheet",
+]
+# …or if the link points at a file-sharing host that orgs use for documents…
+INFOPACK_HOSTS = [
+    "drive.google", "docs.google", "dropbox.com",
+    "onedrive", "1drv.ms", "wetransfer", "we.tl",
+]
+# …or if it is a downloadable document.
+INFOPACK_EXTS = (".pdf", ".doc", ".docx")
+
 
 def guess_ka_action(text: str) -> str:
+    # Otlas doesn't expose a clean KA code, so we infer one: scan the activity
+    # text for the first known code/keyword and map it to a schema value.
+    # Youth Exchange (KA152) is the most common type, so it's the fallback.
     t = text.lower()
     for keyword, value in KA_MAP:
         if keyword.lower() in t:
@@ -60,90 +100,160 @@ def existing_salto_ids(projects: list[dict]) -> set[str]:
     return {p["salto_id"] for p in projects if p.get("salto_id")}
 
 
-def fetch_rss_items() -> list[dict]:
-    print("Fetching Otlas RSS feed…")
-    resp = requests.get(RSS_BASE, headers=HEADERS, timeout=20)
-    resp.raise_for_status()
-    root = ET.fromstring(resp.content)
-    items = []
-    for item in root.findall(".//item"):
-        guid = (item.findtext("guid") or "").strip()
-        items.append({
-            "guid": guid,
-            "title": (item.findtext("title") or "").strip(),
-            "link": (item.findtext("link") or "").strip(),
-            "description": (item.findtext("description") or "").strip(),
-            "author": (item.findtext("author") or "").strip(),
-        })
-    print(f"  {len(items)} projects in feed.")
-    return items
+def _text(node, selector: str) -> str:
+    el = node.select_one(selector)
+    return el.get_text(" ", strip=True) if el else ""
 
 
-def scrape_detail(url: str) -> dict:
-    resp = requests.get(url, headers=HEADERS, timeout=20)
-    resp.raise_for_status()
-    soup = BeautifulSoup(resp.text, "html.parser")
-    text = soup.get_text(" ", strip=True)
+def parse_card(card) -> dict | None:
+    """Turn one search-result tile into an item dict, or None if unparseable.
 
-    # KA action code
-    ka_match = re.search(r"KA1\d+[\w-]*", text)
-    ka_raw = ka_match.group(0) if ka_match else ""
+    Every field is read straight from the card's own markup — each chunk of the
+    tile has a dedicated CSS class, so we just pick the right element and tidy
+    its text. The per-field comments below say what we read and why.
+    """
+    # Link + id: the title is a link to the project page, ending in ".<number>/".
+    # That trailing number is the project's stable Otlas id, which we reuse as
+    # the dedup key. No link or no id → the tile is unusable, so bail out.
+    link = card.select_one("h2.project-title a") or card.find(
+        "a", href=re.compile(r"/project/.+\.\d+/")
+    )
+    if not link:
+        return None
+    href = link.get("href", "")
+    id_match = re.search(r"\.(\d+)/?$", href)
+    if not id_match:
+        return None
+    project_id = id_match.group(1)
 
-    # Date range: "from YYYY-MM till YYYY-MM" or "from YYYY-MM-DD till YYYY-MM-DD"
+    # Title: the heading text (fall back to the link text if the heading is bare).
+    title = _text(card, "h2.project-title") or link.get_text(strip=True)
+    # Summary: the project blurb the org wrote, shown on the tile.
+    summary = _text(card, ".project-summary") or _text(card, ".project-description")
+    # Hosting org: the organisation name, which on the tile is its own link.
+    org = _text(card, ".organisation-name-haslogo a") or ""
+
+    # Country + city: the tile prints the org line as
+    # "a Non-profit/… based in <Country> (<City>)". We grab the country after
+    # "based in" and the optional city from the parentheses.
+    based = _text(card, ".based-in")
+    based_match = re.search(r"based in\s+([A-Za-z .'-]+?)\s*(?:\(([^)]+)\))?$", based)
+    country = based_match.group(1).strip() if based_match else ""
+    city = based_match.group(2).strip() if based_match and based_match.group(2) else ""
+
+    # Dates: the tile prints "This project takes place: from <start> till <end>".
+    # Dates can be month-only (YYYY-MM) or full (YYYY-MM-DD); we accept both.
+    dates = _text(card, ".project-dates")
     date_match = re.search(
-        r"from\s+(\d{4}-\d{2}(?:-\d{2})?)\s+till\s+(\d{4}-\d{2}(?:-\d{2})?)", text
+        r"from\s+(\d{4}-\d{2}(?:-\d{2})?)\s+till\s+(\d{4}-\d{2}(?:-\d{2})?)", dates
     )
     start_date = date_match.group(1) if date_match else ""
     end_date = date_match.group(2) if date_match else ""
 
-    # Venue country and city — Otlas pages have no structured location field without login.
-    # Try the project-meta aside text first, then fall back to scanning description text.
-    aside = soup.find(class_="aside")
-    aside_text = aside.get_text(" ", strip=True) if aside else text
-
-    country_match = re.search(
-        r"[Vv]enue\s+country[:\s]+([A-Z][a-zA-Z\s]{2,30}?)(?:\s{2,}|\n|,)", text
-    )
-    city_match = re.search(
-        r"[Vv]enue\s+city[:\s]+([A-Z][a-zA-Z\s]{2,30}?)(?:\s{2,}|\n|,)", text
-    )
-    country = country_match.group(1).strip() if country_match else ""
-    city = city_match.group(1).strip() if city_match else ""
-
-    # Fallback: match against a list of European + common partner countries
-    if not country:
-        _COUNTRIES = [
-            "Albania", "Armenia", "Austria", "Azerbaijan", "Belarus", "Belgium",
-            "Bosnia and Herzegovina", "Bulgaria", "Croatia", "Cyprus", "Czech Republic",
-            "Denmark", "Estonia", "Finland", "France", "Georgia", "Germany", "Greece",
-            "Hungary", "Iceland", "Ireland", "Israel", "Italy", "Jordan", "Kosovo",
-            "Latvia", "Liechtenstein", "Lithuania", "Luxembourg", "Malta", "Moldova",
-            "Montenegro", "Morocco", "Netherlands", "North Macedonia", "Norway",
-            "Poland", "Portugal", "Romania", "Russia", "Serbia", "Slovakia", "Slovenia",
-            "Spain", "Sweden", "Switzerland", "Tunisia", "Turkey", "Ukraine",
-            "United Kingdom", "Uzbekistan",
-        ]
-        for name in _COUNTRIES:
-            if re.search(r"\b" + re.escape(name) + r"\b", text, re.IGNORECASE):
-                country = name
-                break
-
-    # Infopack / PDF link
-    infopack_url = ""
-    for a in soup.find_all("a", href=True):
-        href = a["href"]
-        if any(x in href.lower() for x in ["infopack", "info-pack", ".pdf", "infosheet"]):
-            infopack_url = href
-            break
+    # Activity type: printed as "and relates to: <activity>"; we drop the prefix
+    # and later map it to a KA action with guess_ka_action().
+    action = _text(card, ".project-action").replace("and relates to:", "").strip()
 
     return {
-        "ka_raw": ka_raw,
-        "start_date": start_date,
-        "end_date": end_date,
+        "guid": f"salto-otlas-project-{project_id}",
+        "title": title,
+        "link": href if href.startswith("http") else SITE_ROOT + href,
+        "summary": summary,
+        "author": org,
         "destination_country": country,
         "location_city": city,
-        "infopack_url": infopack_url,
+        "start_date": start_date,
+        "end_date": end_date,
+        "action": action,
     }
+
+
+def total_results(soup) -> int | None:
+    # The results page prints "We found <N> projects matching your search!".
+    # We read that N to know how many pages to walk (10 results per page).
+    m = re.search(r"found\s+(\d+)\s+projects?", soup.get_text(" ", strip=True), re.I)
+    return int(m.group(1)) if m else None
+
+
+def fetch_listing_items() -> list[dict]:
+    """Page through the filtered search and return every matching project."""
+    print("Fetching Otlas project search (ready-to-recruit only)…")
+    items: list[dict] = []
+    total = None
+    offset = 0
+
+    for page in range(MAX_PAGES):
+        params = {**SEARCH_PARAMS, "b_offset": str(offset)}
+        resp = requests.get(LISTING_URL, headers=HEADERS, params=params, timeout=25)
+        resp.raise_for_status()
+        soup = BeautifulSoup(resp.text, "html.parser")
+
+        if total is None:
+            total = total_results(soup)
+            print(f"  {total if total is not None else '?'} projects match the filter.")
+
+        cards = soup.select("div.tool-item")
+        page_items = [it for c in cards if (it := parse_card(c))]
+        if not page_items:
+            break
+        items.extend(page_items)
+        print(f"  page {page + 1}: +{len(page_items)} (running total {len(items)})")
+
+        offset += PAGE_SIZE
+        if total is not None and offset >= total:
+            break
+        time.sleep(0.6)
+
+    # The same project can surface twice if listings shift between page fetches.
+    unique: dict[str, dict] = {}
+    for it in items:
+        unique.setdefault(it["guid"], it)
+    print(f"  {len(unique)} unique projects collected.")
+    return list(unique.values())
+
+
+def _looks_like_infopack(url: str, label: str = "") -> bool:
+    """An infopack link is recognised by its wording, its host, or its file type."""
+    blob = f"{url} {label}".lower()
+    return (
+        any(kw in blob for kw in INFOPACK_KEYWORDS)      # "infopack", "information", …
+        or any(host in url.lower() for host in INFOPACK_HOSTS)  # a Drive/Dropbox/etc. file
+        or url.lower().split("?")[0].endswith(INFOPACK_EXTS)   # a .pdf/.doc download
+    )
+
+
+def scrape_infopack(url: str) -> str:
+    """Look for an infopack link inside the organisation's own description text.
+
+    Logic: the only place an org can paste an infopack is the free-text
+    description (``.running-text``). We deliberately ignore the rest of the page
+    so SALTO's own chrome ("Info Centres", "Participation & Information", …) can
+    never be mistaken for an infopack. Within that block we accept a link when
+    its wording/host/extension looks like an infopack (see _looks_like_infopack).
+    Orgs paste links two ways, so we check both.
+    """
+    resp = requests.get(url, headers=HEADERS, timeout=20)
+    resp.raise_for_status()
+    soup = BeautifulSoup(resp.text, "html.parser")
+    description = soup.select_one(".running-text") or soup
+
+    # 1) Proper <a> links. Only consider absolute (external) URLs — relative
+    #    links are internal SALTO navigation, never an infopack.
+    for a in description.find_all("a", href=True):
+        href = a["href"].strip()
+        if href.startswith("http") and _looks_like_infopack(href, a.get_text(" ", strip=True)):
+            return href
+
+    # 2) Bare URLs typed into the text (e.g. "Infopack: https://drive.google…").
+    #    Match the URL itself or the few words written just before it.
+    text = description.get_text(" ", strip=True)
+    for m in re.finditer(r"https?://[^\s)<>\"']+", text):
+        link = m.group(0).rstrip(".,);")
+        preceding_words = text[max(0, m.start() - 40):m.start()]
+        if _looks_like_infopack(link, preceding_words):
+            return link
+
+    return ""
 
 
 def next_id(projects: list[dict]) -> str:
@@ -158,7 +268,7 @@ def next_id(projects: list[dict]) -> str:
 def main():
     projects = load_existing()
     seen = existing_salto_ids(projects)
-    items = fetch_rss_items()
+    items = fetch_listing_items()
     added = 0
 
     for item in items:
@@ -169,15 +279,13 @@ def main():
 
         print(f"  + {item['title'][:60]}")
         try:
-            detail = scrape_detail(item["link"])
+            infopack_url = scrape_infopack(item["link"])
         except Exception as e:
-            print(f"    ⚠ detail fetch failed: {e}", file=sys.stderr)
-            detail = {}
+            print(f"    ⚠ infopack fetch failed: {e}", file=sys.stderr)
+            infopack_url = ""
         time.sleep(0.6)
 
-        ka_action = guess_ka_action(
-            detail.get("ka_raw", "") + " " + item["description"]
-        )
+        ka_action = guess_ka_action(f"{item['action']} {item['summary']}")
 
         projects.append({
             "id": next_id(projects),
@@ -185,15 +293,16 @@ def main():
             "salto_url": item["link"],
             "title": item["title"],
             "ka_action": ka_action,
-            "location_city": detail.get("location_city", ""),
-            "destination_country": detail.get("destination_country", ""),
-            "start_date": detail.get("start_date", ""),
-            "end_date": detail.get("end_date", ""),
+            "location_city": item["location_city"],
+            "destination_country": item["destination_country"],
+            "start_date": item["start_date"],
+            "end_date": item["end_date"],
             "hosting_ngo": item["author"],
-            "infopack_url": detail.get("infopack_url", ""),
-            "summary": item["description"],
+            "infopack_url": infopack_url,
+            "summary": item["summary"],
             "application_forms": {},
         })
+        seen.add(guid)
         added += 1
 
     DATA_FILE.write_text(
